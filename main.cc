@@ -9,7 +9,7 @@
 #include <sstream>
 #include <vector>
 
-// #include "message.h"
+#include "message.h"
 
 
 class connection
@@ -154,7 +154,14 @@ private:
     {
       std::cout << "Povedlo se pripojit: " << conn->socket().local_endpoint() << std::endl;
 
-      conn->async_write('a',
+      conn->async_read(data_,
+          boost::bind(&superclient::handle_read, this,
+            boost::asio::placeholders::error, conn));
+
+      InfoMessage msg("Vitejte!");
+      std::cout << "Vytvorena nova zprava: " << msg << std::endl;
+
+      conn->async_write(msg,
           boost::bind(&superclient::handle_write, this,
             boost::asio::placeholders::error));
     }
@@ -167,10 +174,27 @@ private:
 
   void handle_write(const boost::system::error_code& e)
   {
-    std::cout << "povedlo se zapsat nejaka data" << std::endl;
+    if (!e) std::cout << "povedlo se zapsat nejaka data" << std::endl;
+  };
+
+  void handle_read(const boost::system::error_code& e, connection_ptr conn)
+  {
+    if (!e)
+    {
+      std::cout << "povedlo se precist nejaka data:" << data_.type() << std::endl;
+      conn->async_read(data_,
+          boost::bind(&superclient::handle_read, this,
+            boost::asio::placeholders::error, conn));
+    }
+    else
+    {
+      std::cout << "Odpojil se: " << conn->socket().local_endpoint() << std::endl;
+      conn->socket().close();
+    }
   };
 
   boost::asio::ip::tcp::acceptor acceptor_;
+  Message data_;
 };
 
 int main(int argc, char const *argv[])
